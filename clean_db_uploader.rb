@@ -17,11 +17,16 @@ scriptdev2_additions_dir = File.join scriptdev2_basedir, '/addition/'
 
 # Common functions
 def upload_file_to_db filename, database = 'mangos'
-  `mysql -B -u#{$mysql_user} -p#{$mysql_pass} -D#{database} < #{filename}`
+  `mysql -B -u#{$mysql_user} -p#{$mysql_pass} -D#{database} < "#{filename}"`
 end
 def recreate_db database
-  `echo DROP DATABASE IF EXISTS #{database}; | mysql -B -u#{$mysql_user} -p#{$mysql_pass}`
-  `echo CREATE DATABASE IF NOT EXISTS #{database}; | mysql -B -u#{$mysql_user} -p#{$mysql_pass}`
+  if RUBY_PLATFORM =~ /mswin|mingw/
+    `echo DROP DATABASE IF EXISTS #{database}; | mysql -B -u#{$mysql_user} -p#{$mysql_pass}`
+    `echo CREATE DATABASE IF NOT EXISTS #{database}; | mysql -B -u#{$mysql_user} -p#{$mysql_pass}`
+  else
+    `echo "DROP DATABASE IF EXISTS #{database};" | mysql -B -u#{$mysql_user} -p#{$mysql_pass}`
+    `echo "CREATE DATABASE IF NOT EXISTS #{database};" | mysql -B -u#{$mysql_user} -p#{$mysql_pass}`  
+  end
 end
 def upload_by_glob glob, db = nil, except = []
   db ||= 'mangos'
@@ -71,7 +76,10 @@ Dir.glob(File.join(ytdb_full_db_dir, '*.sql')).each do |file|
   upload_file_to_db file
   puts "Full DB revision #{$revision_ytdb} for core >= #{$highest_ytdb_core_rev} uploaded!"
 end
-
+unless $revision_ytdb
+  puts "No YTDB was uploaded! Is the Full DB sql file upacked? ...unable to continue..."
+  exit
+end
 
 # YTDB updates
 puts "Uploading YTDB updates"
