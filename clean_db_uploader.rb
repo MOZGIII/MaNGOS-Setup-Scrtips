@@ -28,15 +28,22 @@ def recreate_db database
     `echo "CREATE DATABASE IF NOT EXISTS #{database};" | mysql -B -u#{$mysql_user} -p#{$mysql_pass}`  
   end
 end
+class Array
+  def version_sort
+    self.sort do |a,b| 
+      a, b = [a, b].map{ |e| File.basename(e).split('_', 2)[0].gsub(/[^0-9]/,'').to_i }
+      a <=> b
+    end
+  end
+end
 def upload_by_glob glob, db = nil, except = []
   db ||= 'mangos'
-  Dir.glob(glob).each do |file|
+  Dir.glob(glob).version_sort.each do |file|
     next if except.member? File.basename(file)
     puts "File: #{File.basename file} to #{db}"
     upload_file_to_db file, db
   end
 end
-
 
 # Script begins
 # Ask for permission to continue
@@ -83,7 +90,7 @@ end
 
 # YTDB updates
 puts "Uploading YTDB updates"
-Dir.glob(File.join(ytdb_updates_dir, '*.sql')).each do |file|
+Dir.glob(File.join(ytdb_updates_dir, '*.sql')).version_sort.each do |file|
   update = File.basename(file, '.sql').split('_')
   is_corepatch = update[1] == 'corepatch'
   
@@ -107,15 +114,19 @@ puts "YTDB updates uploaded!"
 
 # Core updates
 puts "Uploading core updates"
-Dir.glob(File.join(mangos_updates_dir, '*.sql')).each do |file|
+Dir.glob(File.join(mangos_updates_dir, '*.sql')).version_sort.each do |file|
   update = File.basename(file, '.sql').split('_')
   
   rev = update[0].to_i
   db = update[2]
   next if rev > $revision_nr || rev <= $highest_ytdb_core_rev
   
-  puts "File: #{File.basename file} to #{db}"
-  upload_file_to_db file, db  
+  if db =~ /mangos/i
+    puts "File: #{File.basename file} to #{db}"
+    upload_file_to_db file, db
+  else
+    puts "File: #{File.basename file} to #{db} (skipped)"
+  end
 end
 puts "Core updates uploaded!"
 
